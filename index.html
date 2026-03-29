@@ -6,65 +6,74 @@
   <title>Tool</title>
   <style>
     :root{
-      --sidebar-w: 260px;
-      --gap: 16px;
+      --nav-h: 64px;
+      --gap: 12px;
       --bg: #f7f8fb;
       --accent: #2563eb;
       --text: #111827;
     }
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;color:var(--text);}
-    .wrap{display:flex;height:100vh;background:var(--bg);}
-    /* サイドバー */
-    .sidebar{
-      width:var(--sidebar-w);
-      min-width:200px;
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:var(--text);}
+    .wrap{display:flex;flex-direction:column;min-height:100vh;background:var(--bg);}
+    /* トップナビ */
+    header.topbar{
+      height:var(--nav-h);
       background:#fff;
-      border-right:1px solid #e6e9ef;
-      padding:20px;
+      border-bottom:1px solid #e6e9ef;
+      display:flex;
+      align-items:center;
+      padding:0 16px;
       box-sizing:border-box;
-      overflow:auto;
+      gap:16px;
     }
-    .brand{font-weight:700;color:var(--accent);margin-bottom:12px;}
-    .menu{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;}
+    .brand{font-weight:700;color:var(--accent);font-size:1.1rem;}
+    nav.menu-wrap{flex:1;display:flex;align-items:center;justify-content:flex-start;overflow:auto;}
+    .menu{list-style:none;padding:0;margin:0;display:flex;gap:8px;align-items:center;}
     .menu a{
-      display:block;padding:10px 12px;border-radius:8px;color:#374151;text-decoration:none;
+      display:inline-block;padding:8px 12px;border-radius:8px;color:#374151;text-decoration:none;white-space:nowrap;
     }
     .menu a.active{background:linear-gradient(90deg, rgba(37,99,235,0.08), transparent);color:var(--accent);font-weight:600;}
     /* コンテンツ */
-    .content{
+    main.content{
       flex:1;padding:20px;box-sizing:border-box;overflow:auto;
     }
-    /* モバイル対応 */
+    /* モバイル対応: メニューを折り返す */
     @media (max-width:800px){
-      .wrap{flex-direction:column;}
-      .sidebar{width:100%;min-width:0;border-right:0;border-bottom:1px solid #e6e9ef;display:flex;align-items:center;gap:12px;}
-      .menu{flex-direction:row;overflow:auto;}
-      .menu a{white-space:nowrap;}
+      header.topbar{flex-wrap:wrap;height:auto;padding:12px;}
+      .menu{flex-wrap:wrap;gap:6px;}
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <aside class="sidebar" role="navigation" aria-label="ツールメニュー">
+    <header class="topbar" role="banner">
       <div class="brand">Tool</div>
-      <ul class="menu" id="menu">
-        <li><a href="#" data-file="content/about.html"  class="active">概要</a></li>
-        <li><a href="#" data-file="content/puzzle_simulator_new.html">トリッカル　ビンゴイベント<br>「イードの永遠の夢路」</a></li>
-        <li><a href="#" data-file="content/contact.html">連絡先</a></li>
-      </ul>
-    </aside>
+      <nav class="menu-wrap" role="navigation" aria-label="ツールメニュー">
+        <ul class="menu" id="menu">
+          <li><a href="#content/about.html" data-file="content/about.html" class="active" aria-current="page">概要</a></li>
+          <li><a href="#content/puzzle_simulator_new.html" data-file="content/puzzle_simulator_new.html" title="トリッカル ビンゴイベント — イードの永遠の夢路">トリッカル ビンゴイベント「イードの永遠の夢路」</a></li>
+          <li><a href="#content/contact.html" data-file="content/contact.html">連絡先</a></li>
+        </ul>
+      </nav>
+    </header>
 
     <main class="content" id="content" tabindex="0" aria-live="polite">
-      <!-- 初期表示 -->
       <h2>読み込み中…</h2>
-      <p>左のメニューから項目を選んでください。</p>
+      <p>上のメニューから項目を選んでください。</p>
     </main>
   </div>
 
   <script>
-    // メニュークリックで右側に HTML を読み込むシンプルなローダー
     const menu = document.getElementById('menu');
     const content = document.getElementById('content');
+
+    function setActiveLink(path) {
+      menu.querySelectorAll('a').forEach(a => {
+        const isActive = a.dataset.file === path;
+        a.classList.toggle('active', isActive);
+        if (isActive) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
+      });
+    }
 
     async function loadFile(path, pushHistory = true) {
       try {
@@ -74,44 +83,37 @@
         const html = await res.text();
         content.innerHTML = html;
         if (pushHistory) history.pushState({path}, '', '#' + path);
+        setActiveLink(path);
       } catch (err) {
         content.innerHTML = '<h2>読み込みエラー</h2><p>' + err.message + '</p>';
       }
     }
 
-    // メニューのイベント
     menu.addEventListener('click', (e) => {
       const a = e.target.closest('a[data-file]');
       if (!a) return;
       e.preventDefault();
-      // active クラス切替
-      menu.querySelectorAll('a').forEach(x => x.classList.remove('active'));
-      a.classList.add('active');
       const file = a.dataset.file;
       loadFile(file);
     });
 
-    // 初期表示: URL ハッシュがあればそれを読み込む
     window.addEventListener('load', () => {
       const hash = location.hash.replace('#','');
       if (hash) {
-        // ハッシュに対応するメニューがあれば active にする
         const link = menu.querySelector(`a[data-file="${hash}"]`);
-        if (link) link.classList.add('active');
+        if (link) setActiveLink(hash);
         loadFile(hash, false);
       } else {
-        // デフォルトを読み込む
         const defaultFile = menu.querySelector('a[data-file]').dataset.file;
+        setActiveLink(defaultFile);
         loadFile(defaultFile, false);
       }
     });
 
-    // 戻るボタン対応
     window.addEventListener('popstate', (e) => {
       const path = (e.state && e.state.path) || location.hash.replace('#','');
       if (path) {
-        // メニューの active を更新
-        menu.querySelectorAll('a').forEach(x => x.classList.toggle('active', x.dataset.file === path));
+        setActiveLink(path);
         loadFile(path, false);
       }
     });
