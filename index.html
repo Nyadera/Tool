@@ -49,9 +49,14 @@
       gap:12px;
       box-shadow:var(--shadow);
     }
-    .brand{font-weight:700;color:var(--accent);font-size:1.1rem;}
+    /* Brand as a clickable element */
+    .brand{
+      font-weight:700;color:var(--accent);font-size:1.1rem;text-decoration:none;padding:6px 8px;border-radius:8px;
+    }
+    .brand:focus{outline:3px solid rgba(37,99,235,0.12);outline-offset:2px;}
+
     nav.menu-wrap{flex:1;display:flex;align-items:center;justify-content:flex-start;overflow:auto;}
-    .menu{list-style:none;padding:0;margin:0;display:flex;gap:8px;align-items:center;}
+    .menu{list-style:none;padding:0;margin:0;display:flex;gap:8px;align-items:center;width:100%;}
     .menu a{
       display:inline-block;padding:8px 12px;border-radius:8px;color:var(--muted-text);text-decoration:none;white-space:nowrap;
       background:transparent;
@@ -59,8 +64,11 @@
     .menu a:hover{background:linear-gradient(90deg, rgba(37,99,235,0.04), transparent);}
     .menu a.active{background:linear-gradient(90deg, rgba(37,99,235,0.08), transparent);color:var(--accent);font-weight:600;}
 
+    /* spacer: pushes items to the right */
+    .menu .spacer{flex:1;height:1px;pointer-events:none}
+
     /* トグル */
-    .controls{display:flex;align-items:center;gap:8px;}
+    .controls{display:flex;align-items:center;gap:8px;margin-left:8px;}
     .theme-toggle{
       display:inline-flex;
       align-items:center;
@@ -103,6 +111,7 @@
       header.topbar{flex-wrap:wrap;height:auto;padding:12px;}
       .menu{flex-wrap:wrap;gap:6px;}
       iframe#tool-frame { height: 640px; }
+      .controls{margin-left:0;}
     }
 
     /* 小さなアクセシビリティ調整 */
@@ -112,18 +121,24 @@
 <body>
   <div class="wrap">
     <header class="topbar" role="banner">
-      <div class="brand">Tool</div>
+      <!-- Brand is a clickable link that loads about.html -->
+      <a href="#content/about.html" id="brand-link" data-file="content/about.html" class="brand" aria-label="Tool ホームへ">Tool</a>
+
       <nav class="menu-wrap" role="navigation" aria-label="ツールメニュー">
         <ul class="menu" id="menu">
-          <li><a href="#content/about.html" data-file="content/about.html" class="active" aria-current="page">概要</a></li>
-          <li><a href="#content/puzzle_simulator_new.html" data-file="content/puzzle_simulator_new.html" title="トリッカル ビンゴイベント — イードの永遠の夢路">トリッカル ビンゴイベント「イードの永遠の夢路」</a></li>
-          <li><a href="#content/contact.html" data-file="content/contact.html">連絡先</a></li>
+          <!-- left-side tool items (about removed to avoid duplication with brand) -->
+          <li><a href="#content/puzzle_simulator_new.html" data-file="content/puzzle_simulator_new.html" title="トリッカル ビンゴイベント — イードの永遠の夢路">トリッカル ビンゴイベント</a></li>
+
+          <!-- spacer pushes the following item(s) to the far right -->
+          <li class="spacer" aria-hidden="true"></li>
+
+          <!-- contact moved to the far right -->
+          <li><a href="#content/contact.html" data-file="content/contact.html" id="contact-link">連絡先</a></li>
         </ul>
       </nav>
 
       <div class="controls">
         <button id="theme-toggle" class="theme-toggle" aria-pressed="false" title="ダークモード切替" aria-label="ダークモード切替">
-          <!-- アイコンは CSS で色が変わる -->
           <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
@@ -152,27 +167,24 @@
       const metaTheme = document.getElementById('meta-theme-color');
       const ICON_SUN = document.getElementById('icon-sun');
       const ICON_MOON = document.getElementById('icon-moon');
+      const brandLink = document.getElementById('brand-link');
 
       /* ---------- Theme handling ---------- */
-      const THEME_KEY = 'site-theme'; // 'light' | 'dark' | 'system'
+      const THEME_KEY = 'site-theme';
       function getPreferredTheme() {
         const saved = localStorage.getItem(THEME_KEY);
         if (saved === 'light' || saved === 'dark') return saved;
-        // default: follow system preference
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
 
       function applyTheme(theme, persist = false) {
         if (!theme) theme = getPreferredTheme();
         root.setAttribute('data-theme', theme === 'dark' ? 'dark' : '');
-        // update meta theme-color for mobile UI
         metaTheme.setAttribute('content', theme === 'dark' ? '#071025' : '#f7f8fb');
-        // update toggle aria and icon
         const isDark = theme === 'dark';
         themeToggle.setAttribute('aria-pressed', String(isDark));
         ICON_SUN.style.display = isDark ? 'none' : '';
         ICON_MOON.style.display = isDark ? '' : 'none';
-        // notify iframe(s) of theme change (same-origin)
         postThemeToFrame(theme);
         if (persist) localStorage.setItem(THEME_KEY, theme);
       }
@@ -186,20 +198,15 @@
       function postThemeToFrame(theme) {
         try {
           frame.contentWindow.postMessage({ type: 'theme', theme }, location.origin);
-        } catch (err) {
-          // ignore
-        }
+        } catch (err) {}
       }
 
-      // initialize theme on load
       (function initTheme() {
-        // if user explicitly set preference in localStorage, use it; otherwise follow system
         const saved = localStorage.getItem(THEME_KEY);
         const initial = saved === 'light' || saved === 'dark' ? saved : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         applyTheme(initial, false);
       })();
 
-      // allow system changes to update theme when user hasn't explicitly set one
       if (window.matchMedia) {
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
           const saved = localStorage.getItem(THEME_KEY);
@@ -212,7 +219,6 @@
       themeToggle.addEventListener('click', (e) => {
         toggleTheme();
       });
-
       themeToggle.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -222,22 +228,26 @@
 
       /* ---------- Menu / iframe navigation ---------- */
       function setActiveLink(path) {
-        menu.querySelectorAll('a').forEach(a => {
+        // menu links
+        menu.querySelectorAll('a[data-file]').forEach(a => {
           const isActive = a.dataset.file === path;
           a.classList.toggle('active', isActive);
           if (isActive) a.setAttribute('aria-current', 'page');
           else a.removeAttribute('aria-current');
         });
+        // brand link visual state (optional)
+        if (brandLink && brandLink.dataset.file) {
+          const brandActive = brandLink.dataset.file === path;
+          brandLink.classList.toggle('active', brandActive);
+        }
       }
 
       function loadIntoFrame(path, pushHistory = true) {
         if (!path) return;
-        // avoid unnecessary reload if same path
         const current = frame.getAttribute('src') || '';
         if (current.endsWith(path)) {
           if (pushHistory) history.pushState({ path }, '', '#' + path);
           setActiveLink(path);
-          // still send theme to ensure iframe matches
           postThemeToFrame(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
           return;
         }
@@ -246,6 +256,7 @@
         setActiveLink(path);
       }
 
+      // handle clicks on menu links
       menu.addEventListener('click', (e) => {
         const a = e.target.closest('a[data-file]');
         if (!a) return;
@@ -254,17 +265,44 @@
         loadIntoFrame(file);
       });
 
+      // brand click loads about.html
+      brandLink.addEventListener('click', (e) => {
+        const file = brandLink.dataset.file || 'content/about.html';
+        e.preventDefault();
+        loadIntoFrame(file);
+      });
+
+      // keyboard support for menu
+      menu.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const a = e.target.closest('a[data-file]');
+          if (a) {
+            e.preventDefault();
+            loadIntoFrame(a.dataset.file);
+          }
+        }
+      });
+
+      // on load: prefer hash; otherwise prefer about.html, then brand, then first menu item
       window.addEventListener('load', () => {
         const hash = location.hash.replace('#','');
         if (hash) {
           const link = menu.querySelector(`a[data-file="${hash}"]`);
           if (link) setActiveLink(hash);
           loadIntoFrame(hash, false);
-        } else {
-          const defaultFile = menu.querySelector('a[data-file]').dataset.file;
-          setActiveLink(defaultFile);
-          loadIntoFrame(defaultFile, false);
+          return;
         }
+
+        const aboutPath = 'content/about.html';
+        const aboutLinkInMenu = menu.querySelector(`a[data-file="${aboutPath}"]`);
+        const defaultFile = aboutLinkInMenu
+          ? aboutPath
+          : (brandLink && brandLink.dataset.file)
+            ? brandLink.dataset.file
+            : (menu.querySelector('a[data-file]') ? menu.querySelector('a[data-file]').dataset.file : aboutPath);
+
+        setActiveLink(defaultFile);
+        loadIntoFrame(defaultFile, false);
       });
 
       window.addEventListener('popstate', (e) => {
@@ -276,26 +314,20 @@
 
       /* ---------- Message handling from iframe ---------- */
       window.addEventListener('message', (ev) => {
-        // same-origin check
         try {
           if (ev.origin !== location.origin) return;
-        } catch (err) {
-          // ignore
-        }
+        } catch (err) {}
         const data = ev.data || {};
         if (data && data.type === 'resize' && typeof data.height === 'number') {
           const newH = Math.max(200, data.height + 24);
           frame.style.height = newH + 'px';
         }
-        // iframe can request current theme
         if (data && data.type === 'request-theme') {
           postThemeToFrame(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
         }
       });
 
-      /* ---------- iframe load/error handling ---------- */
       frame.addEventListener('load', () => {
-        // when iframe loads, send current theme and request its height
         postThemeToFrame(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
         try {
           frame.contentWindow.postMessage({ type: 'request-height' }, location.origin);
@@ -304,17 +336,6 @@
 
       frame.addEventListener('error', () => {
         frameWrap.innerHTML = '<div style="padding:24px;color:var(--text);background:var(--surface);border-radius:8px;">コンテンツの読み込みに失敗しました。ファイルが存在するか、パスを確認してください。</div>';
-      });
-
-      /* ---------- Accessibility: keyboard navigation for menu ---------- */
-      menu.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          const a = e.target.closest('a[data-file]');
-          if (a) {
-            e.preventDefault();
-            loadIntoFrame(a.dataset.file);
-          }
-        }
       });
     })();
   </script>
