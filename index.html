@@ -13,12 +13,16 @@
       --bg: #f7f8fb;
       --surface: #ffffff;
       --muted-surface: #f1f3f8;
-      --accent: #2563eb;
+      --accent: #2563eb; /* active blue */
       --text: #111827;
       --muted-text: #6b7280;
       --border: #e6e9ef;
       --frame-bg: #ffffff;
       --shadow: 0 1px 2px rgba(16,24,40,0.04);
+
+      /* Brand colors */
+      --brand-default: #f59e0b; /* yellow */
+      --brand-active: var(--accent); /* blue when active/clicked */
     }
 
     /* Dark theme variables */
@@ -32,6 +36,10 @@
       --border: rgba(255,255,255,0.06);
       --frame-bg: #071025;
       --shadow: 0 1px 2px rgba(2,6,23,0.6);
+
+      /* brand in dark mode: keep visible yellow but slightly adjusted */
+      --brand-default: #fbbf24;
+      --brand-active: var(--accent);
     }
 
     html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:var(--text);background:var(--bg);}
@@ -51,7 +59,19 @@
     }
     /* Brand as a clickable element */
     .brand{
-      font-weight:700;color:var(--accent);font-size:1.1rem;text-decoration:none;padding:6px 8px;border-radius:8px;
+      font-weight:700;
+      color:var(--brand-default);
+      font-size:1.1rem;
+      text-decoration:none;
+      padding:6px 8px;
+      border-radius:8px;
+      transition: color .12s ease, background-color .12s ease;
+    }
+    /* When brand is active (clicked / current page) it becomes blue */
+    .brand.active{
+      color:var(--brand-active);
+      background:linear-gradient(90deg, rgba(37,99,235,0.08), transparent);
+      font-weight:700;
     }
     .brand:focus{outline:3px solid rgba(37,99,235,0.12);outline-offset:2px;}
 
@@ -60,6 +80,7 @@
     .menu a{
       display:inline-block;padding:8px 12px;border-radius:8px;color:var(--muted-text);text-decoration:none;white-space:nowrap;
       background:transparent;
+      transition: color .12s ease, background-color .12s ease;
     }
     .menu a:hover{background:linear-gradient(90deg, rgba(37,99,235,0.04), transparent);}
     .menu a.active{background:linear-gradient(90deg, rgba(37,99,235,0.08), transparent);color:var(--accent);font-weight:600;}
@@ -235,7 +256,7 @@
           if (isActive) a.setAttribute('aria-current', 'page');
           else a.removeAttribute('aria-current');
         });
-        // brand link visual state (optional)
+        // brand link visual state
         if (brandLink && brandLink.dataset.file) {
           const brandActive = brandLink.dataset.file === path;
           brandLink.classList.toggle('active', brandActive);
