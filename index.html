@@ -36,10 +36,27 @@
     main.content{
       flex:1;padding:20px;box-sizing:border-box;overflow:auto;
     }
+    /* iframe styling */
+    .frame-wrap {
+      background: #fff;
+      border: 1px solid #e6e9ef;
+      border-radius: 10px;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    iframe#tool-frame {
+      width: 100%;
+      height: 820px;
+      border: 0;
+      border-radius: 6px;
+      display: block;
+      background: white;
+    }
     /* モバイル対応: メニューを折り返す */
     @media (max-width:800px){
       header.topbar{flex-wrap:wrap;height:auto;padding:12px;}
       .menu{flex-wrap:wrap;gap:6px;}
+      iframe#tool-frame { height: 640px; }
     }
   </style>
 </head>
@@ -57,66 +74,105 @@
     </header>
 
     <main class="content" id="content" tabindex="0" aria-live="polite">
-      <h2>読み込み中…</h2>
-      <p>上のメニューから項目を選んでください。</p>
+      <div class="frame-wrap" id="frame-wrap">
+        <iframe id="tool-frame" src="content/about.html" title="Tool content"></iframe>
+      </div>
     </main>
   </div>
 
   <script>
-    const menu = document.getElementById('menu');
-    const content = document.getElementById('content');
+    (function () {
+      const menu = document.getElementById('menu');
+      const frame = document.getElementById('tool-frame');
+      const frameWrap = document.getElementById('frame-wrap');
 
-    function setActiveLink(path) {
-      menu.querySelectorAll('a').forEach(a => {
-        const isActive = a.dataset.file === path;
-        a.classList.toggle('active', isActive);
-        if (isActive) a.setAttribute('aria-current', 'page');
-        else a.removeAttribute('aria-current');
+      // set active link visually and aria
+      function setActiveLink(path) {
+        menu.querySelectorAll('a').forEach(a => {
+          const isActive = a.dataset.file === path;
+          a.classList.toggle('active', isActive);
+          if (isActive) a.setAttribute('aria-current', 'page');
+          else a.removeAttribute('aria-current');
+        });
+      }
+
+      // change iframe src safely
+      function loadIntoFrame(path, pushHistory = true) {
+        if (!path) return;
+        // update src only if different to avoid reloads
+        if (frame.src && frame.src.endsWith(path)) {
+          // still update history/active
+          if (pushHistory) history.pushState({ path }, '', '#' + path);
+          setActiveLink(path);
+          return;
+        }
+        frame.src = path;
+        if (pushHistory) history.pushState({ path }, '', '#' + path);
+        setActiveLink(path);
+      }
+
+      // menu click handler
+      menu.addEventListener('click', (e) => {
+        const a = e.target.closest('a[data-file]');
+        if (!a) return;
+        e.preventDefault();
+        const file = a.dataset.file;
+        loadIntoFrame(file);
       });
-    }
 
-    async function loadFile(path, pushHistory = true) {
-      try {
-        content.innerHTML = '<h2>読み込み中…</h2>';
-        const res = await fetch(path);
-        if (!res.ok) throw new Error('読み込み失敗: ' + res.status);
-        const html = await res.text();
-        content.innerHTML = html;
-        if (pushHistory) history.pushState({path}, '', '#' + path);
-        setActiveLink(path);
-      } catch (err) {
-        content.innerHTML = '<h2>読み込みエラー</h2><p>' + err.message + '</p>';
-      }
-    }
+      // on load: respect hash or default
+      window.addEventListener('load', () => {
+        const hash = location.hash.replace('#','');
+        if (hash) {
+          const link = menu.querySelector(`a[data-file="${hash}"]`);
+          if (link) setActiveLink(hash);
+          loadIntoFrame(hash, false);
+        } else {
+          const defaultFile = menu.querySelector('a[data-file]').dataset.file;
+          setActiveLink(defaultFile);
+          loadIntoFrame(defaultFile, false);
+        }
+      });
 
-    menu.addEventListener('click', (e) => {
-      const a = e.target.closest('a[data-file]');
-      if (!a) return;
-      e.preventDefault();
-      const file = a.dataset.file;
-      loadFile(file);
-    });
+      // popstate (back/forward)
+      window.addEventListener('popstate', (e) => {
+        const path = (e.state && e.state.path) || location.hash.replace('#','');
+        if (path) {
+          loadIntoFrame(path, false);
+        }
+      });
 
-    window.addEventListener('load', () => {
-      const hash = location.hash.replace('#','');
-      if (hash) {
-        const link = menu.querySelector(`a[data-file="${hash}"]`);
-        if (link) setActiveLink(hash);
-        loadFile(hash, false);
-      } else {
-        const defaultFile = menu.querySelector('a[data-file]').dataset.file;
-        setActiveLink(defaultFile);
-        loadFile(defaultFile, false);
-      }
-    });
+      // receive resize messages from iframe (same-origin check)
+      window.addEventListener('message', (ev) => {
+        try {
+          if (ev.origin !== location.origin) return;
+        } catch (err) {
+          // ignore origin check errors
+        }
+        const data = ev.data || {};
+        if (data && data.type === 'resize' && typeof data.height === 'number') {
+          // add small padding so content isn't cramped
+          const newH = Math.max(200, data.height + 24);
+          frame.style.height = newH + 'px';
+        }
+      });
 
-    window.addEventListener('popstate', (e) => {
-      const path = (e.state && e.state.path) || location.hash.replace('#','');
-      if (path) {
-        setActiveLink(path);
-        loadFile(path, false);
-      }
-    });
+      // optional: if iframe fails to load (404), show a friendly message inside frame-wrap
+      frame.addEventListener('error', () => {
+        frameWrap.innerHTML = '<div style="padding:24px;color:#333;background:#fff;border-radius:8px;">コンテンツの読み込みに失敗しました。ファイルが存在するか、パスを確認してください。</div>';
+      });
+
+      // accessibility: allow keyboard navigation to switch menu items with Enter
+      menu.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const a = e.target.closest('a[data-file]');
+          if (a) {
+            e.preventDefault();
+            loadIntoFrame(a.dataset.file);
+          }
+        }
+      });
+    })();
   </script>
 </body>
 </html>
